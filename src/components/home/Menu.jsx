@@ -1,38 +1,49 @@
 import React from "react";
+import { motion } from "framer-motion";
 import MenuCard from "./MenuCard";
-import burger1 from "../../assets/burger1.png";
-import burger2 from "../../assets/burger2.png";
-import burger3 from "../../assets/burger3.png";
-
-const sampleItems = [
-	{ id: 1, title: "Classic Burger", price: 199, img: burger1 },
-	{ id: 2, title: "Cheese Burger", price: 249, img: burger2 },
-	{ id: 3, title: "Double Deluxe", price: 299, img: burger3 },
-];
+import { products, useStore } from "../../context/StoreContext";
 
 function Menu() {
-	const handleBuy = (id) => {
-		console.log("Buy", id);
-	};
+  const { addToCart } = useStore();
 
-	return (
-		<section className="menu">
-			<h2>Our Menu</h2>
-			<div className="menu-grid">
-				{sampleItems.map((it, idx) => (
-					<MenuCard
-						key={it.id}
-						itemNum={it.id}
-						burgerSrc={it.img}
-						price={it.price}
-						title={it.title}
-						handler={handleBuy}
-						delay={idx * 0.1}
-					/>
-				))}
-			</div>
-		</section>
-	);
+  const handleBuy = (id) => {
+    const product = products.find((p) => Number(p.id) === Number(id));
+    if (product) addToCart(product);
+  };
+
+  return (
+    <section className="py-20 bg-white">
+      <div className="container mx-auto px-4">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-4xl md:text-5xl font-bold text-dark mb-4">
+            Our <span className="text-primary">Menu</span>
+          </h2>
+          <p className="text-dark-light text-lg max-w-2xl mx-auto">
+            Handcrafted burgers made with love and the finest ingredients
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {products.map((product, idx) => (
+            <MenuCard
+              key={product.id}
+              itemNum={product.id}
+              burgerSrc={product.img}
+              price={product.price}
+              title={product.title}
+              handler={handleBuy}
+              delay={idx * 0.1}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default Menu;

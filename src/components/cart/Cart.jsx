@@ -1,73 +1,131 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import burger1 from "../../assets/burger1.png";
-import burger2 from "../../assets/burger2.png";
-// import burger3 here
+import { motion } from "framer-motion";
+import { AiOutlinePlus, AiOutlineMinus, AiOutlineDelete } from "react-icons/ai";
+import { useStore } from "../../context/StoreContext";
 
-const CartItem = ({ value, title, img, increment, decrement }) => (
-  <div className="cartItem">
-    <div>
-      <h4>{title}</h4>
-      <img src={img} alt="Item" />
+const CartItem = ({ value, title, img, increment, decrement, remove }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    exit={{ opacity: 0, x: 20 }}
+    className="bg-white rounded-lg shadow-md p-4 mb-4 flex items-center justify-between"
+  >
+    <div className="flex items-center space-x-4">
+      <img
+        src={img}
+        alt={title}
+        className="w-20 h-20 object-contain rounded-lg"
+      />
+      <h4 className="text-lg font-semibold text-dark">{title}</h4>
     </div>
 
-    <div>
-      <button onClick={decrement}>-</button>
-      <input type="number" readOnly value={value} />
-      <button onClick={increment}>+</button>
+    <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2 bg-gray-100 rounded-full px-2">
+        <button
+          onClick={decrement}
+          className="p-2 hover:bg-primary hover:text-white rounded-full transition-colors"
+        >
+          <AiOutlineMinus />
+        </button>
+        <span className="w-12 text-center font-semibold">{value}</span>
+        <button
+          onClick={increment}
+          className="p-2 hover:bg-primary hover:text-white rounded-full transition-colors"
+        >
+          <AiOutlinePlus />
+        </button>
+      </div>
+
+      <button
+        onClick={remove}
+        className="p-2 text-red-500 hover:bg-red-500 hover:text-white rounded-full transition-colors"
+      >
+        <AiOutlineDelete className="text-xl" />
+      </button>
     </div>
-  </div>
+  </motion.div>
 );
 
 const Cart = () => {
-  const increment = (item) => {};
-
-  const decrement = (item) => {};
+  const { state, increment, decrement, removeItem, totals } = useStore();
+  const items = state.cartItems;
 
   return (
-    <section className="cart">
-      <main>
-        <CartItem
-          title={"Cheese Burger"}
-          img={burger1}
-          value={0}
-          increment={() => increment(1)}
+    <section className="min-h-screen bg-pink-light py-12">
+      <div className="container mx-auto px-4 max-w-4xl">
+        <h1 className="text-4xl font-bold text-dark mb-8 text-center">
+          Your <span className="text-primary">Cart</span>
+        </h1>
 
-        // Add the function for decrementing the order by 1 
-       
-        />
-        <CartItem
-          title={"Veg Cheese Burger"}
-          img={burger2}
-          value={0}
-          increment={() => increment(2)}
-        // Add the function for decrementing the order by 2
-       
-        />
+        {items.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl p-12 text-center"
+          >
+            <p className="text-2xl text-dark-light mb-6">Your cart is empty</p>
+            <Link
+              to="/"
+              className="inline-block bg-primary hover:bg-primary-dark text-white px-8 py-3 rounded-full transition-all duration-300 transform hover:scale-105"
+            >
+              Browse Menu
+            </Link>
+          </motion.div>
+        ) : (
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Cart Items */}
+            <div className="lg:col-span-2">
+              {items.map((item) => (
+                <CartItem
+                  key={item.id}
+                  title={item.title}
+                  img={item.img}
+                  value={item.qty}
+                  increment={() => increment(item.id)}
+                  decrement={() => decrement(item.id)}
+                  remove={() => removeItem(item.id)}
+                />
+              ))}
+            </div>
 
-        {/* Fill up the code for Cheese Burger similarly */}
-       
+            {/* Order Summary */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-24">
+                <h3 className="text-2xl font-bold text-dark mb-6">
+                  Order Summary
+                </h3>
 
-        <article>
-          <div>
-            <h4>Sub Total</h4>
-            <p>₹{2000}</p>
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between text-dark-light">
+                    <span>Subtotal</span>
+                    <span className="font-semibold">₹{totals.subtotal}</span>
+                  </div>
+                  <div className="flex justify-between text-dark-light">
+                    <span>Tax (18%)</span>
+                    <span className="font-semibold">₹{totals.tax}</span>
+                  </div>
+                  <div className="flex justify-between text-dark-light">
+                    <span>Shipping</span>
+                    <span className="font-semibold">₹{totals.shipping}</span>
+                  </div>
+                  <div className="border-t pt-4 flex justify-between text-dark text-xl font-bold">
+                    <span>Total</span>
+                    <span className="text-primary">₹{totals.total}</span>
+                  </div>
+                </div>
+
+                <Link
+                  to="/shipping"
+                  className="block w-full bg-primary hover:bg-primary-dark text-white text-center py-3 rounded-full font-semibold transition-all duration-300 transform hover:scale-105"
+                >
+                  Proceed to Checkout
+                </Link>
+              </div>
+            </div>
           </div>
-          <div>
-            <h4>Tax</h4>
-            <p>₹{2000 * 0.18}</p>
-          </div>
-          <div>
-            <h4>Shipping Charges</h4>
-            <p>₹{200}</p>
-          </div>{" "}
-          <div>
-            <h4>Total</h4>
-            <p>₹{2000 + 2000 * 0.18 + 200}</p>
-          </div>
-          <Link to="/shipping">Checkout</Link>
-        </article>
-      </main>
+        )}
+      </div>
     </section>
   );
 };
