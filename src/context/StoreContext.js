@@ -1,8 +1,22 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react";
+import api, { setAuthToken } from "../api/client";
+
+const STORAGE_KEY = "skillup-burger-store";
 
 const initialState = {
   user: null,
+  token: null,
+  products: [],
   cartItems: [],
+  orders: [],
   shipping: {
     house: "",
     city: "",
@@ -11,10 +25,7 @@ const initialState = {
     pinCode: "",
     contact: "",
   },
-  orders: [],
 };
-
-const STORAGE_KEY = "skillup-burger-store";
 
 const loadState = () => {
   try {
@@ -24,9 +35,9 @@ const loadState = () => {
     return {
       ...initialState,
       ...parsed,
+      shipping: { ...initialState.shipping, ...(parsed.shipping || {}) },
       cartItems: parsed.cartItems || [],
       orders: parsed.orders || [],
-      shipping: { ...initialState.shipping, ...(parsed.shipping || {}) },
     };
   } catch (err) {
     console.warn("Failed to load state, using defaults", err);
@@ -45,50 +56,37 @@ const computeTotals = (items) => {
   return { subtotal, tax, shipping, total };
 };
 
+const normalizeCart = (cart) => {
+  const items = cart?.items || [];
+  const normalized = items.map((item) => ({
+    cartItemId: item._id,
+    productId: item.product?._id || item.product,
+    title: item.product?.title || "",
+    img: item.product?.image || "",
+    price: item.price ?? item.product?.price ?? 0,
+    qty: item.quantity || 1,
+  }));
+  return normalized;
+};
+
 function reducer(state, action) {
   switch (action.type) {
-    case "LOGIN":
-      return { ...state, user: action.payload };
-    case "LOGOUT":
-      return { ...state, user: null };
-    case "ADD_TO_CART": {
-      const item = action.payload;
-      const existing = state.cartItems.find((it) => it.id === item.id);
-      const next = existing
-        ? state.cartItems.map((it) =>
-            it.id === item.id ? { ...it, qty: Number(it.qty) + 1 } : it
-          )
-        : [...state.cartItems, { ...item, qty: 1 }];
-      return { ...state, cartItems: next };
-    }
-    case "CHANGE_QTY": {
-      const { id, delta } = action.payload;
-      const next = state.cartItems
-        .map((it) =>
-          it.id === id ? { ...it, qty: Math.max(0, Number(it.qty) + delta) } : it
-        )
-        .filter((it) => it.qty > 0);
-      return { ...state, cartItems: next };
-    }
-    case "REMOVE_ITEM": {
+    case "SET_AUTH":
       return {
         ...state,
-        cartItems: state.cartItems.filter((it) => it.id !== action.payload),
+        user: action.payload.user,
+        token: action.payload.token,
       };
-    }
-    case "CLEAR_CART":
-      return { ...state, cartItems: [] };
+    case "LOGOUT":
+      return { ...initialState, products: state.products };
+    case "SET_PRODUCTS":
+      return { ...state, products: action.payload };
+    case "SET_CART":
+      return { ...state, cartItems: action.payload };
+    case "SET_ORDERS":
+      return { ...state, orders: action.payload };
     case "SET_SHIPPING":
       return { ...state, shipping: { ...state.shipping, ...action.payload } };
-    case "PLACE_ORDER": {
-      const order = action.payload;
-      if (!order) return state;
-      return {
-        ...state,
-        orders: [order, ...state.orders],
-        cartItems: [],
-      };
-    }
     default:
       return state;
   }
@@ -98,65 +96,267 @@ const StoreContext = createContext();
 
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadState);
+  const [loading, setLoading] = useState({
+    products: false,
+    cart: false,
+    orders: false,
+  });
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    setAuthToken(state.token);
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         user: state.user,
+        token: state.token,
         cartItems: state.cartItems,
-        shipping: state.shipping,
         orders: state.orders,
+        shipping: state.shipping,
       })
     );
-  }, [state]);
+  }, [state.user, state.token, state.cartItems, state.orders, state.shipping]);
 
-  const totals = useMemo(() => computeTotals(state.cartItems), [state.cartItems]);
+  const cartTotals = useMemo(
+    () => computeTotals(state.cartItems),
+    [state.cartItems]
+  );
   const cartCount = useMemo(
     () => state.cartItems.reduce((sum, it) => sum + Number(it.qty || 0), 0),
     [state.cartItems]
   );
 
+  const setAuth = useCallback((payload) => {
+    dispatch({ type: "SET_AUTH", payload });
+    setAuthToken(payload.token);
+  }, []);
+
+  const handleError = useCallback((err) => {
+    const message =
+      err.response?.data?.message || err.message || "Something went wrong";
+    setError(message);
+    return message;
+  }, []);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading((prev) => ({ ...prev, products: true }));
+    try {
+      const res = await api.get("/products");
+      dispatch({ type: "SET_PRODUCTS", payload: res.data.products || [] });
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading((prev) => ({ ...prev, products: false }));
+    }
+  }, [handleError]);
+
+  const fetchCart = useCallback(async () => {
+    if (!state.token) return;
+    setLoading((prev) => ({ ...prev, cart: true }));
+    try {
+      const res = await api.get("/cart");
+      dispatch({ type: "SET_CART", payload: normalizeCart(res.data.cart) });
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading((prev) => ({ ...prev, cart: false }));
+    }
+  }, [state.token, handleError]);
+
+  const addToCart = useCallback(
+    async (productId, quantity = 1) => {
+      try {
+        const res = await api.post("/cart/items", { productId, quantity });
+        dispatch({ type: "SET_CART", payload: normalizeCart(res.data.cart) });
+      } catch (err) {
+        return handleError(err);
+      }
+      return null;
+    },
+    [handleError]
+  );
+
+  const updateCartItem = useCallback(
+    async (cartItemId, quantity) => {
+      try {
+        const res = await api.put(`/cart/items/${cartItemId}`, { quantity });
+        dispatch({ type: "SET_CART", payload: normalizeCart(res.data.cart) });
+      } catch (err) {
+        return handleError(err);
+      }
+      return null;
+    },
+    [handleError]
+  );
+
+  const removeCartItem = useCallback(
+    async (cartItemId) => {
+      try {
+        const res = await api.delete(`/cart/items/${cartItemId}`);
+        dispatch({ type: "SET_CART", payload: normalizeCart(res.data.cart) });
+      } catch (err) {
+        return handleError(err);
+      }
+      return null;
+    },
+    [handleError]
+  );
+
+  const clearCart = useCallback(async () => {
+    try {
+      const res = await api.delete("/cart");
+      dispatch({ type: "SET_CART", payload: normalizeCart(res.data.cart) });
+    } catch (err) {
+      if (err.response?.status === 404) {
+        dispatch({ type: "SET_CART", payload: [] });
+      } else {
+        handleError(err);
+      }
+    }
+  }, [handleError]);
+
+  const fetchOrders = useCallback(async () => {
+    if (!state.token) return;
+    setLoading((prev) => ({ ...prev, orders: true }));
+    try {
+      const res = await api.get("/orders");
+      dispatch({ type: "SET_ORDERS", payload: res.data.orders || [] });
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading((prev) => ({ ...prev, orders: false }));
+    }
+  }, [state.token, handleError]);
+
+  const getOrderById = useCallback(
+    async (orderId) => {
+      const cached = state.orders.find((o) => o._id === orderId);
+      if (cached) return cached;
+      try {
+        const res = await api.get(`/orders/${orderId}`);
+        return res.data.order;
+      } catch (err) {
+        handleError(err);
+        return null;
+      }
+    },
+    [state.orders, handleError]
+  );
+
+  const placeOrder = useCallback(
+    async (shippingOverride) => {
+      if (!state.cartItems.length) return { error: "Cart is empty" };
+      const shippingAddress = shippingOverride || state.shipping;
+      const items = state.cartItems.map((item) => ({
+        product: item.productId,
+        quantity: item.qty,
+      }));
+
+      try {
+        const res = await api.post("/orders", { items, shippingAddress });
+        const order = res.data.order;
+        dispatch({ type: "SET_ORDERS", payload: [order, ...state.orders] });
+        await clearCart();
+        return { orderId: order._id, order };
+      } catch (err) {
+        return { error: handleError(err) };
+      }
+    },
+    [state.cartItems, state.shipping, state.orders, clearCart, handleError]
+  );
+
+  const setShipping = useCallback((payload) => {
+    dispatch({ type: "SET_SHIPPING", payload });
+  }, []);
+
+  const register = useCallback(
+    async ({ name, email, password }) => {
+      try {
+        const res = await api.post("/auth/register", { name, email, password });
+        setAuth(res.data);
+        return { user: res.data.user };
+      } catch (err) {
+        return { error: handleError(err) };
+      }
+    },
+    [handleError, setAuth]
+  );
+
+  const login = useCallback(
+    async ({ email, password }) => {
+      try {
+        const res = await api.post("/auth/login", { email, password });
+        setAuth(res.data);
+        return { user: res.data.user };
+      } catch (err) {
+        return { error: handleError(err) };
+      }
+    },
+    [handleError, setAuth]
+  );
+
+  const fetchMe = useCallback(async () => {
+    if (!state.token) return;
+    try {
+      const res = await api.get("/auth/me");
+      dispatch({
+        type: "SET_AUTH",
+        payload: { user: res.data.user, token: state.token },
+      });
+    } catch (err) {
+      handleError(err);
+    }
+  }, [state.token, handleError]);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      // ignore logout failures
+    } finally {
+      setAuthToken(null);
+      dispatch({ type: "LOGOUT" });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    if (state.token) {
+      fetchMe();
+      fetchCart();
+      fetchOrders();
+    }
+  }, [state.token, fetchCart, fetchOrders, fetchMe]);
+
   const value = {
     state,
+    loading,
+    error,
     isAuthenticated: !!state.user,
     cartCount,
-    totals,
-    addToCart: (item) => dispatch({ type: "ADD_TO_CART", payload: item }),
-    increment: (id) => dispatch({ type: "CHANGE_QTY", payload: { id, delta: 1 } }),
-    decrement: (id) => dispatch({ type: "CHANGE_QTY", payload: { id, delta: -1 } }),
-    removeItem: (id) => dispatch({ type: "REMOVE_ITEM", payload: id }),
-    clearCart: () => dispatch({ type: "CLEAR_CART" }),
-    setShipping: (payload) => dispatch({ type: "SET_SHIPPING", payload }),
-    placeOrder: (shippingOverride) => {
-      if (state.cartItems.length === 0) return null;
-      const totals = computeTotals(state.cartItems);
-      const shippingData = shippingOverride || state.shipping;
-      const order = {
-        id: `ORD-${Date.now()}`,
-        status: "Processing",
-        paymentMethod: "COD",
-        items: state.cartItems,
-        amount: totals,
-        shipping: shippingData,
-        createdAt: new Date().toISOString(),
-      };
-      dispatch({ type: "PLACE_ORDER", payload: order });
-      return order.id;
-    },
-    login: (payload) => dispatch({ type: "LOGIN", payload }),
-    logout: () => dispatch({ type: "LOGOUT" }),
+    totals: cartTotals,
+    products: state.products,
+    fetchProducts,
+    addToCart,
+    updateCartItem,
+    removeCartItem,
+    clearCart,
+    fetchCart,
+    fetchOrders,
+    getOrderById,
+    placeOrder,
+    setShipping,
+    login,
+    register,
+    logout,
   };
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  return (
+    <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+  );
 }
 
 export const useStore = () => useContext(StoreContext);
-
-export const products = [
-  { id: 1, title: "Classic Burger", price: 199, img: require("../assets/burger1.png") },
-  { id: 2, title: "Cheese Burger", price: 249, img: require("../assets/burger2.png") },
-  { id: 3, title: "Double Deluxe", price: 299, img: require("../assets/burger3.png") },
-];
-
-export const findProduct = (id) => products.find((p) => Number(p.id) === Number(id));

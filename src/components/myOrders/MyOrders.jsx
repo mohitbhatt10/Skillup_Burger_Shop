@@ -1,12 +1,16 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AiOutlineEye } from "react-icons/ai";
 import { useStore } from "../../context/StoreContext";
 
 const MyOrders = () => {
-  const { state } = useStore();
+  const { state, fetchOrders, loading } = useStore();
   const orders = state.orders;
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   return (
     <section className="min-h-screen bg-pink-light py-12">
@@ -15,7 +19,9 @@ const MyOrders = () => {
           My <span className="text-primary">Orders</span>
         </h1>
 
-        {orders.length === 0 ? (
+        {loading.orders ? (
+          <p className="text-center text-dark-light">Loading your orders...</p>
+        ) : orders.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -65,23 +71,23 @@ const MyOrders = () => {
                 <tbody>
                   {orders.map((order, idx) => (
                     <motion.tr
-                      key={order.id}
+                      key={order._id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.1 }}
                       className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4 font-medium text-dark">
-                        {order.id}
+                        {order.orderId || order._id}
                       </td>
                       <td className="px-6 py-4">
                         <span className="inline-block px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700">
-                          {order.status}
+                          {order.orderStatus}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-dark-light">
                         {order.items.reduce(
-                          (sum, i) => sum + Number(i.qty || 0),
+                          (sum, i) => sum + Number(i.quantity || 0),
                           0
                         )}
                       </td>
@@ -93,8 +99,8 @@ const MyOrders = () => {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <Link
-                          to={`/order/${order.id}`}
-                          aria-label={`View ${order.id}`}
+                          to={`/order/${order._id}`}
+                          aria-label={`View ${order.orderId || order._id}`}
                           className="inline-flex items-center justify-center w-10 h-10 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-full transition-all duration-300"
                         >
                           <AiOutlineEye className="text-xl" />

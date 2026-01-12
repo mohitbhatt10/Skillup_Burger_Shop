@@ -1,14 +1,24 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import MenuCard from "./MenuCard";
-import { products, useStore } from "../../context/StoreContext";
+import { useStore } from "../../context/StoreContext";
 
 function Menu() {
-  const { addToCart } = useStore();
+  const navigate = useNavigate();
+  const { products, loading, fetchProducts, addToCart, isAuthenticated } =
+    useStore();
 
-  const handleBuy = (id) => {
-    const product = products.find((p) => Number(p.id) === Number(id));
-    if (product) addToCart(product);
+  useEffect(() => {
+    if (!products.length) fetchProducts();
+  }, [products.length, fetchProducts]);
+
+  const handleBuy = async (productId) => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+    await addToCart(productId, 1);
   };
 
   return (
@@ -28,19 +38,23 @@ function Menu() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {products.map((product, idx) => (
-            <MenuCard
-              key={product.id}
-              itemNum={product.id}
-              burgerSrc={product.img}
-              price={product.price}
-              title={product.title}
-              handler={handleBuy}
-              delay={idx * 0.1}
-            />
-          ))}
-        </div>
+        {loading.products ? (
+          <p className="text-center text-dark-light">Loading menu...</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {products.map((product, idx) => (
+              <MenuCard
+                key={product._id}
+                itemNum={product._id}
+                burgerSrc={product.image}
+                price={product.price}
+                title={product.title}
+                handler={handleBuy}
+                delay={idx * 0.1}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

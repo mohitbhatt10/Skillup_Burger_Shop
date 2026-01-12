@@ -20,6 +20,7 @@ const Shipping = () => {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { setShipping, placeOrder } = useStore();
 
@@ -29,7 +30,7 @@ const Shipping = () => {
     [country]
   );
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (
       !form.house ||
@@ -45,12 +46,18 @@ const Shipping = () => {
     setError("");
     const shippingData = { ...form, country, state: stateCode };
     setShipping(shippingData);
-    const orderId = placeOrder(shippingData);
+    setSubmitting(true);
+    const { orderId, error: placeError } = await placeOrder(shippingData);
+    setSubmitting(false);
+    if (placeError) {
+      setError(placeError);
+      return;
+    }
     if (orderId) {
       setSuccess(true);
       setTimeout(() => {
         navigate(`/order/${orderId}`);
-      }, 1500);
+      }, 1000);
     }
   };
 
@@ -201,9 +208,10 @@ const Shipping = () => {
 
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+              disabled={submitting}
+              className="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Confirm Order
+              {submitting ? "Placing Order..." : "Confirm Order"}
             </button>
           </form>
         </motion.div>

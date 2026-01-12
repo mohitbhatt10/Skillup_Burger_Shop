@@ -48,7 +48,7 @@ const CartItem = ({ value, title, img, increment, decrement, remove }) => (
 );
 
 const Cart = () => {
-  const { state, increment, decrement, removeItem, totals } = useStore();
+  const { state, updateCartItem, removeCartItem, totals, loading } = useStore();
   const items = state.cartItems;
 
   return (
@@ -58,7 +58,15 @@ const Cart = () => {
           Your <span className="text-primary">Cart</span>
         </h1>
 
-        {items.length === 0 ? (
+        {loading.cart && items.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl p-12 text-center"
+          >
+            <p className="text-2xl text-dark-light mb-6">Loading cart...</p>
+          </motion.div>
+        ) : items.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -78,13 +86,20 @@ const Cart = () => {
             <div className="lg:col-span-2">
               {items.map((item) => (
                 <CartItem
-                  key={item.id}
+                  key={item.cartItemId}
                   title={item.title}
                   img={item.img}
                   value={item.qty}
-                  increment={() => increment(item.id)}
-                  decrement={() => decrement(item.id)}
-                  remove={() => removeItem(item.id)}
+                  increment={() =>
+                    updateCartItem(item.cartItemId, Number(item.qty) + 1)
+                  }
+                  decrement={() =>
+                    updateCartItem(
+                      item.cartItemId,
+                      Math.max(1, Number(item.qty) - 1)
+                    )
+                  }
+                  remove={() => removeCartItem(item.cartItemId)}
                 />
               ))}
             </div>

@@ -6,18 +6,31 @@ import { useStore } from "../../context/StoreContext";
 
 function Login() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useStore();
-  const [form, setForm] = useState({ name: "", email: "" });
+  const { login, register, isAuthenticated } = useStore();
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState("login");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.email) {
-      setError("Please enter name and email.");
+    if (!form.email || !form.password) {
+      setError("Please enter email and password.");
+      return;
+    }
+    if (mode === "register" && !form.name) {
+      setError("Please enter your name.");
       return;
     }
     setError("");
-    login({ name: form.name, email: form.email });
+    setSubmitting(true);
+    const action = mode === "login" ? login : register;
+    const { error: authError } = await action(form);
+    setSubmitting(false);
+    if (authError) {
+      setError(authError);
+      return;
+    }
     navigate("/me");
   };
 
@@ -40,21 +53,23 @@ function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-dark font-medium mb-2">Name</label>
-            <div className="relative">
-              <AiOutlineUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-light text-xl" />
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="Your name"
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-primary focus:outline-none transition-colors"
-              />
+          {mode === "register" && (
+            <div>
+              <label className="block text-dark font-medium mb-2">Name</label>
+              <div className="relative">
+                <AiOutlineUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-light text-xl" />
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Your name"
+                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-primary focus:outline-none transition-colors"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <label className="block text-dark font-medium mb-2">Email</label>
@@ -72,6 +87,22 @@ function Login() {
             </div>
           </div>
 
+          <div>
+            <label className="block text-dark font-medium mb-2">Password</label>
+            <div className="relative">
+              <AiOutlineUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-light text-xl" />
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+                placeholder="Enter password"
+                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-primary focus:outline-none transition-colors"
+              />
+            </div>
+          </div>
+
           {error && (
             <motion.p
               initial={{ opacity: 0 }}
@@ -84,11 +115,26 @@ function Login() {
 
           <button
             type="submit"
-            className="w-full bg-primary hover:bg-primary-dark text-white py-3 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+            disabled={submitting}
+            className="w-full bg-primary hover:bg-primary-dark text-white py-3 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Login
+            {submitting
+              ? "Please wait..."
+              : mode === "login"
+              ? "Login"
+              : "Register"}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={() => setMode((m) => (m === "login" ? "register" : "login"))}
+          className="w-full mt-4 text-primary hover:text-primary-dark font-semibold"
+        >
+          {mode === "login"
+            ? "Need an account? Register"
+            : "Already have an account? Login"}
+        </button>
       </motion.div>
     </section>
   );

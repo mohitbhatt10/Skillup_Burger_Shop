@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Country, State } from "country-state-city";
@@ -7,18 +7,47 @@ import { useStore } from "../../context/StoreContext";
 
 function OrderDetails() {
   const { id } = useParams();
-  const { state } = useStore();
-  const order = state.orders.find((o) => String(o.id) === String(id));
-  const countryName = order?.shipping?.country
-    ? Country.getCountryByCode(order.shipping.country)?.name ||
-      order.shipping.country
+  const { state, getOrderById } = useStore();
+  const [order, setOrder] = useState(() =>
+    state.orders.find((o) => String(o._id) === String(id))
+  );
+  const [loading, setLoading] = useState(!order);
+
+  useEffect(() => {
+    let active = true;
+    if (!order) {
+      getOrderById(id).then((res) => {
+        if (active) {
+          setOrder(res);
+          setLoading(false);
+        }
+      });
+    } else {
+      setLoading(false);
+    }
+    return () => {
+      active = false;
+    };
+  }, [id, order, getOrderById]);
+
+  const shipping = order?.shippingAddress;
+  const countryName = shipping?.country
+    ? Country.getCountryByCode(shipping.country)?.name || shipping.country
     : "";
-  const stateName = order?.shipping?.state
-    ? State.getStateByCodeAndCountry(
-        order.shipping.state,
-        order.shipping.country
-      )?.name || order.shipping.state
+  const stateName = shipping?.state
+    ? State.getStateByCodeAndCountry(shipping.state, shipping.country)?.name ||
+      shipping.state
     : "";
+
+  if (loading) {
+    return (
+      <section className="min-h-screen bg-pink-light py-12">
+        <div className="container mx-auto px-4 max-w-2xl text-center">
+          <p className="text-dark-light">Loading order...</p>
+        </div>
+      </section>
+    );
+  }
 
   if (!order) {
     return (
@@ -57,7 +86,9 @@ function OrderDetails() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-3xl font-bold mb-2">Order Details</h2>
-                <p className="text-white/80">Order ID: {order.id}</p>
+                <p className="text-white/80">
+                  Order ID: {order.orderId || order._id}
+                </p>
               </div>
               <AiOutlineCheckCircle className="text-5xl" />
             </div>
@@ -69,7 +100,7 @@ function OrderDetails() {
               <div>
                 <p className="text-dark-light text-sm mb-1">Status</p>
                 <span className="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-700">
-                  {order.status}
+                  {order.orderStatus}
                 </span>
               </div>
               <div>
@@ -92,15 +123,14 @@ function OrderDetails() {
             </h3>
             <div className="bg-gray-50 rounded-lg p-6">
               <p className="text-dark mb-2">
-                <strong>Address:</strong> {order.shipping.house},{" "}
-                {order.shipping.city}
+                <strong>Address:</strong> {shipping.house}, {shipping.city}
               </p>
               <p className="text-dark mb-2">
                 <strong>Location:</strong> {stateName}, {countryName} -{" "}
-                {order.shipping.pinCode}
+                {shipping.pinCode}
               </p>
               <p className="text-dark">
-                <strong>Contact:</strong> {order.shipping.contact}
+                <strong>Contact:</strong> {shipping.contact}
               </p>
             </div>
           </div>
@@ -114,26 +144,26 @@ function OrderDetails() {
             <div className="space-y-4">
               {order.items.map((item) => (
                 <motion.div
-                  key={item.id}
+                  key={item._id || item.product}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="flex items-center justify-between bg-gray-50 rounded-lg p-4"
                 >
                   <div className="flex items-center space-x-4">
                     <img
-                      src={item.img}
+                      src={item.image}
                       alt={item.title}
                       className="w-16 h-16 object-contain rounded-lg"
                     />
                     <div>
                       <h4 className="font-semibold text-dark">{item.title}</h4>
                       <p className="text-dark-light text-sm">
-                        Quantity: {item.qty}
+                        Quantity: {item.quantity}
                       </p>
                     </div>
                   </div>
                   <p className="font-bold text-primary text-lg">
-                    ₹{Number(item.price) * Number(item.qty)}
+                    ₹{Number(item.price) * Number(item.quantity)}
                   </p>
                 </motion.div>
               ))}
