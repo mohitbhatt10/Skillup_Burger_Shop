@@ -8,7 +8,7 @@ import {
 import { GiHamburger } from "react-icons/gi";
 import { motion, AnimatePresence } from "framer-motion";
 
-function Header({ isAuthenticated, cartCount = 0 }) {
+function Header({ isAuthenticated, cartCount = 0, isAdmin = false }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -58,6 +58,14 @@ function Header({ isAuthenticated, cartCount = 0 }) {
             {/* Auth Links */}
             {isAuthenticated ? (
               <>
+                {isAdmin && (
+                  <Link
+                    to="/admin/products"
+                    className="text-dark hover:text-primary transition-colors duration-300 font-medium"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   to="/myorders"
                   className="text-dark hover:text-primary transition-colors duration-300 font-medium"
@@ -124,6 +132,15 @@ function Header({ isAuthenticated, cartCount = 0 }) {
                 </Link>
                 {isAuthenticated ? (
                   <>
+                    {isAdmin && (
+                      <Link
+                        to="/admin/products"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-dark hover:text-primary transition-colors duration-300 font-medium py-2 border-b border-gray-200"
+                      >
+                        Admin
+                      </Link>
+                    )}
                     <Link
                       to="/myorders"
                       onClick={() => setMobileMenuOpen(false)}

@@ -7,12 +7,10 @@ const register = async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Please provide name, email, and password",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Please provide name, email, and password",
+      });
     }
 
     const existing = await User.findOne({ email });
@@ -59,6 +57,12 @@ const login = async (req, res) => {
         .json({ success: false, message: "Invalid credentials" });
     }
 
+    if (user.isActive === false) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Account is disabled" });
+    }
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res
@@ -77,6 +81,7 @@ const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isActive: user.isActive,
       },
     });
   } catch (error) {

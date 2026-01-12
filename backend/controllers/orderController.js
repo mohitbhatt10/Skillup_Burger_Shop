@@ -64,12 +64,10 @@ const createOrder = async (req, res) => {
       .status(201)
       .json({ success: true, message: "Order placed successfully", order });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message || "Order creation failed",
-      });
+    res.status(500).json({
+      success: false,
+      message: error.message || "Order creation failed",
+    });
   }
 };
 
@@ -79,9 +77,12 @@ const getOrders = async (req, res) => {
     if (req.user.role === "admin") {
       delete filter.user;
       if (req.query.status) filter.orderStatus = req.query.status;
+      if (req.query.userId) filter.user = req.query.userId;
     }
 
-    const orders = await Order.find(filter).sort({ createdAt: -1 });
+    const orders = await Order.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("user", "name email role");
     res.status(200).json({ success: true, count: orders.length, orders });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to fetch orders" });
@@ -149,12 +150,10 @@ const cancelOrder = async (req, res) => {
 
     const isOwner = order.user.toString() === req.user._id.toString();
     if (!isOwner && req.user.role !== "admin") {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Not authorized to cancel this order",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to cancel this order",
+      });
     }
 
     if (order.orderStatus !== "Processing" && req.user.role !== "admin") {

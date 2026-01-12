@@ -13,16 +13,25 @@ import MyOrders from "./components/myOrders/MyOrders";
 import OrderDetails from "./components/myOrders/OrderDetails";
 import About from "./components/about/About";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
+import AdminLayout from "./components/admin/AdminLayout";
+import AdminProducts from "./components/admin/AdminProducts";
+import AdminOrders from "./components/admin/AdminOrders";
+import AdminUsers from "./components/admin/AdminUsers";
 import { useStore } from "./context/StoreContext";
 
 function App() {
   const { isAuthenticated, cartCount, state } = useStore();
   const hasCartItems = state.cartItems.length > 0;
   const canCheckout = isAuthenticated && hasCartItems;
+  const isAdmin = state.user?.role === "admin";
 
   return (
     <Router>
-      <Header isAuthenticated={isAuthenticated} cartCount={cartCount} />
+      <Header
+        isAuthenticated={isAuthenticated}
+        cartCount={cartCount}
+        isAdmin={isAdmin}
+      />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
@@ -64,6 +73,19 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute isAllowed={isAdmin} redirectTo="/">
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AdminProducts />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="users" element={<AdminUsers />} />
+        </Route>
         <Route path="*" element={<Home />} />
       </Routes>
 

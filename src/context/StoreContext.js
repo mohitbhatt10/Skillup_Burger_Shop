@@ -17,6 +17,7 @@ const initialState = {
   products: [],
   cartItems: [],
   orders: [],
+  users: [],
   shipping: {
     house: "",
     city: "",
@@ -85,6 +86,8 @@ function reducer(state, action) {
       return { ...state, cartItems: action.payload };
     case "SET_ORDERS":
       return { ...state, orders: action.payload };
+    case "SET_USERS":
+      return { ...state, users: action.payload };
     case "SET_SHIPPING":
       return { ...state, shipping: { ...state.shipping, ...action.payload } };
     default:
@@ -100,6 +103,7 @@ export function StoreProvider({ children }) {
     products: false,
     cart: false,
     orders: false,
+    users: false,
   });
   const [error, setError] = useState(null);
 
@@ -319,6 +323,122 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
+  // Admin: products
+  const adminCreateProduct = useCallback(
+    async (payload) => {
+      try {
+        const res = await api.post("/products", payload);
+        dispatch({
+          type: "SET_PRODUCTS",
+          payload: [res.data.product, ...state.products],
+        });
+      } catch (err) {
+        return handleError(err);
+      }
+      return null;
+    },
+    [handleError, state.products]
+  );
+
+  const adminUpdateProduct = useCallback(
+    async (id, payload) => {
+      try {
+        const res = await api.put(`/products/${id}`, payload);
+        dispatch({
+          type: "SET_PRODUCTS",
+          payload: state.products.map((p) =>
+            p._id === id ? res.data.product : p
+          ),
+        });
+      } catch (err) {
+        return handleError(err);
+      }
+      return null;
+    },
+    [handleError, state.products]
+  );
+
+  const adminDeleteProduct = useCallback(
+    async (id) => {
+      try {
+        await api.delete(`/products/${id}`);
+        dispatch({
+          type: "SET_PRODUCTS",
+          payload: state.products.filter((p) => p._id !== id),
+        });
+      } catch (err) {
+        return handleError(err);
+      }
+      return null;
+    },
+    [handleError, state.products]
+  );
+
+  // Admin: orders
+  const adminFetchOrders = useCallback(
+    async (status) => {
+      setLoading((prev) => ({ ...prev, orders: true }));
+      try {
+        const res = await api.get("/orders", {
+          params: status ? { status } : {},
+        });
+        return { data: res.data.orders };
+      } catch (err) {
+        return { error: handleError(err) };
+      } finally {
+        setLoading((prev) => ({ ...prev, orders: false }));
+      }
+    },
+    [handleError]
+  );
+
+  const adminUpdateOrderStatus = useCallback(
+    async (orderId, orderStatus) => {
+      try {
+        await api.put(`/orders/${orderId}/status`, { orderStatus });
+      } catch (err) {
+        return handleError(err);
+      }
+      return null;
+    },
+    [handleError]
+  );
+
+  // Admin: users
+  const adminFetchUsers = useCallback(async () => {
+    setLoading((prev) => ({ ...prev, users: true }));
+    try {
+      const res = await api.get("/users/all");
+      dispatch({ type: "SET_USERS", payload: res.data.users || [] });
+      return { data: res.data.users };
+    } catch (err) {
+      return { error: handleError(err) };
+    } finally {
+      setLoading((prev) => ({ ...prev, users: false }));
+    }
+  }, [handleError]);
+
+  const adminUpdateUser = useCallback(
+    async (userId, payload) => {
+      try {
+        const res = await api.put("/users/profile/admin", {
+          targetUserId: userId,
+          ...payload,
+        });
+        dispatch({
+          type: "SET_USERS",
+          payload: state.users.map((u) =>
+            u._id === userId ? res.data.user : u
+          ),
+        });
+        return { user: res.data.user };
+      } catch (err) {
+        return { error: handleError(err) };
+      }
+    },
+    [handleError, state.users]
+  );
+
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
@@ -352,6 +472,14 @@ export function StoreProvider({ children }) {
     login,
     register,
     logout,
+    // admin helpers
+    adminCreateProduct,
+    adminUpdateProduct,
+    adminDeleteProduct,
+    adminFetchOrders,
+    adminUpdateOrderStatus,
+    adminFetchUsers,
+    adminUpdateUser,
   };
 
   return (

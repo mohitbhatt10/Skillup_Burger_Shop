@@ -38,14 +38,18 @@ const createProduct = async (req, res) => {
       payload.image = req.file.path;
     }
 
+    if (!payload.image) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Product image is required" });
+    }
+
     const product = await Product.create(payload);
-    res
-      .status(201)
-      .json({
-        success: true,
-        message: "Product created successfully",
-        product,
-      });
+    res.status(201).json({
+      success: true,
+      message: "Product created successfully",
+      product,
+    });
   } catch (error) {
     res
       .status(500)
@@ -68,13 +72,11 @@ const updateProduct = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Product not found" });
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Product updated successfully",
-        product,
-      });
+    res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      product,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Product update failed" });
   }
